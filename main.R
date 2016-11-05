@@ -33,5 +33,13 @@ model <- "GBM"
 
 ## Run
 GBM.results <- do.cv(inputData$features, inputData$response, model, para, K)
+## Plot
 plot.errors(GBM.results, para, "Generalized Boosting Model (GBM)" )
+## Write JPEG plot
+jpeg(filename = "./output/GBM.jpg",
+     width = 640, height = 480, units = "px", pointsize = 12,
+     quality = 100)
+plot.errors(GBM.results, para, "Generalized Boosting Model (GBM)" )
+dev.off()
+
 
