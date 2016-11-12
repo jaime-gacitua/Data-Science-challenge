@@ -13,8 +13,11 @@ cv.function <- function(X.train, y.train, model, params, K){
   cat("Parameters:", params, "\n")
   n <- length(y.train)
   n.fold <- floor(n/K)
-  s <- sample(rep(1:K, c(rep(n.fold, K-1), n-(K-1)*n.fold)))  
+  #s <- sample(rep(1:K, c(rep(n.fold, K-1), n-(K-1)*n.fold)))  
+  s <- rep(1:K, c(rep(n.fold, K-1), n-(K-1)*n.fold))
   
+  cat(s, "\n")
+    
   cv.error <- rep(NA, K)
   
   for (i in 1:K){

@@ -35,11 +35,28 @@ train <- function(dat_train, label_train, model, param){
     dat_train <- as.matrix(dat_train)
     label_train <- as.vector(label_train)
     
-    fitted.glm <- glmnet(x = dat_train, y = label_train, alpha=0, lambda = param) # Alpha = 0 means ridge
+    fitted <- glmnet(x = dat_train, y = label_train, alpha=0, lambda = param) # Alpha = 0 means ridge
     
     cat("Done fitting model", "\n")
     
-    return(list(fit=fitted.glm))
+    return(list(fit=fitted))
+  }
+  
+  if(model == "LASSO"){
+    
+    cat("Lasso Selected", param, typeof(param), "\n")
+    
+    library(glmnet)
+    
+    dat_train <- as.matrix(dat_train)
+    label_train <- as.vector(label_train)
+    
+    fitted <- glmnet(x = dat_train, y = label_train, alpha=1, lambda = param) # Alpha = 1 means lasso
+    
+    
+    cat("Done fitting model", "\n")
+    
+    return(list(fit=fitted))
   }
 
     

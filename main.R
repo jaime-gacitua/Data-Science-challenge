@@ -61,8 +61,24 @@ RIDGE.results <- do.cv(inputData$features, inputData$response, model, para, K)
 
 plot(x = para, y = RIDGE.results[,1], log = 'x')
 
+
+### 3
+
+## Setup
+
+para <- c(10000000000000, 10000000, 100, 10, 1, 0.5, 0.2, 0.1, 0.01, 0.000000000001)
+K <- 5  # number of CV folds
+model <- "LASSO"
+
+
+## Run
+
+LASSO.results <- do.cv(inputData$features, inputData$response, model, para, K)
+## Plot
+
+plot(x = para, y = LASSO.results[,1], log = 'x')
+
+### Summary of experiments
 GBM.results
 RIDGE.results
-#GBM.results
-
-
+LASSO.results
