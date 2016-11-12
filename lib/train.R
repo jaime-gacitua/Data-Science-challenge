@@ -23,9 +23,25 @@ train <- function(dat_train, label_train, model, param){
     gbm.best <- gbm.perf(fitted.gbm, method="OOB")
     
     
-    
+    return(list(fit=fitted.gbm, gbm.perf=gbm.best))    
   }
   
-  return(list(fit=fitted.gbm, gbm.perf=gbm.best))
+  if(model == "RIDGE"){
+    
+    cat("Ridge Selected", param, typeof(param), "\n")
+    
+    library(glmnet)
+    
+    dat_train <- as.matrix(dat_train)
+    label_train <- as.vector(label_train)
+    
+    fitted.glm <- glmnet(x = dat_train, y = label_train, alpha=0, lambda = param) # Alpha = 0 means ridge
+    
+    cat("Done fitting model", "\n")
+    
+    return(list(fit=fitted.glm))
+  }
+
+    
 }
 

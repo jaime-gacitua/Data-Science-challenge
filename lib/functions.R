@@ -5,12 +5,19 @@ do.cv <- function(data.train, label.train, model, params, K){
   
   # Loop over each parameter set
   cv.errors <- lapply(params, function(x){
+    
     cv.function(data.train, label.train, model, x, K)
-  })
+  
+    })
   
   # Transform results into a matrix. Allows plotting later.
   # 2 columns: (Mean, StDev)
   cv.errors.mat <- matrix(unlist(cv.errors), ncol = 2, byrow = TRUE)
+  
+  number.rows <- length(params)
+  modelcol <- rep(model, number.rows)
+  
+  cv.errors.mat <- cbind(cv.errors.mat, modelcol)  
   
   return(cv.errors.mat)
 }
