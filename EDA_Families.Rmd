@@ -1,0 +1,83 @@
+---
+title: "Seed Data Analysis"
+author: "SCS"
+date: "November 23, 2016"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width = 20)
+
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+library(readr)
+library(hexbin)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+
+```
+
+## Exploratory data analysis
+
+```{r}
+raw.data <- readxl::read_excel('./data/EXPERIMENT DATA.xlsx')
+```
+
+```{r, echo=FALSE}
+raw.data$EXPERIMENT <- factor(raw.data$EXPERIMENT)
+raw.data$LOCATION <- factor(raw.data$LOCATION, levels = unique(raw.data$LOCATION))
+raw.data$VARIETY <- factor(raw.data$VARIETY)
+raw.data$FAMILY <- factor(raw.data$FAMILY)
+raw.data$CHECK <- factor(raw.data$CHECK)
+raw.data$CLASS_OF <- factor(raw.data$CLASS_OF)
+
+
+raw.data.nrows <- nrow(raw.data)
+summary(raw.data)
+```
+
+
+```{r}
+family.stat <- raw.data %>% dplyr::group_by(FAMILY) %>%
+    dplyr::summarise(Yieldmean = mean(YIELD),
+                     Yieldsd = sd(YIELD))
+```
+
+
+```{r}
+plt <- plot_ly(data = family.stat, x = ~Yieldmean, y = ~Yieldsd,
+                 type = 'scatter') %>%
+  layout(title = paste0('Family Stats'),
+           xaxis = list(title = "Mean Yield"),
+           yaxis = list(title = "Sd Yield"))
+  
+  
+plt
+```
+
+```{r}
+family.stat.check <- raw.data %>% dplyr::group_by(FAMILY, CHECK) %>%
+    dplyr::summarise(Yieldmean = mean(YIELD),
+                     Yieldsd = sd(YIELD))
+```
+
+
+```{r}
+plt <- plot_ly(data = family.stat.check, x = ~Yieldmean, y = ~Yieldsd, 
+               color = ~CHECK, colors = "Set1", text = ~FAMILY,
+                 type = 'scatter') %>%
+  layout(title = paste0('Family Stats, Partitioned by Check'),
+           xaxis = list(title = "Mean Yield"),
+           yaxis = list(title = "Sd Yield"))
+  
+  
+plt
+```
+

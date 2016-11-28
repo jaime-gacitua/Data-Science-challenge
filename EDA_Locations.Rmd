@@ -1,0 +1,166 @@
+---
+title: "Seed Data Analysis"
+author: "SCS"
+date: "November 23, 2016"
+output:
+  html_notebook: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 15)
+options(width = 20)
+
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+library(readr)
+library(hexbin)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+
+```
+
+## Exploratory data analysis
+
+```{r}
+raw.data <- readxl::read_excel('./data/EXPERIMENT DATA.xlsx')
+```
+
+```{r, echo=FALSE}
+raw.data$EXPERIMENT <- factor(raw.data$EXPERIMENT)
+raw.data$LOCATION <- factor(raw.data$LOCATION, levels = unique(raw.data$LOCATION))
+raw.data$VARIETY <- factor(raw.data$VARIETY)
+raw.data$FAMILY <- factor(raw.data$FAMILY)
+raw.data$CHECK <- factor(raw.data$CHECK)
+raw.data$CLASS_OF <- factor(raw.data$CLASS_OF)
+
+
+raw.data.nrows <- nrow(raw.data)
+summary(raw.data)
+```
+
+```{r, fig.width=10}
+## Calculate number of observations per location
+
+location.stats <- raw.data %>% dplyr::group_by(LOCATION) %>%
+  dplyr::summarise(count = n())
+
+location.stats <- location.stats[order(location.stats$count, decreasing = TRUE),]
+location.stats$LOCATION <- factor(location.stats$LOCATION, levels = location.stats$LOCATION)
+raw.data$LOCATION <- factor(raw.data$LOCATION, levels = location.stats$LOCATION)
+
+location.stats.plot <- plot_ly(
+                          x = location.stats$LOCATION,
+                          y = location.stats$count,
+                          type = "bar"
+                        )%>%
+  layout(title=paste0("Location usage preferences. Total Locations ", 
+                      nrow(location.stats) ),
+         xaxis= list(title="Location Code"),
+         yaxis= list(title="Number of observations"))
+location.stats.plot
+
+```
+
+
+```{r, fig.width=10}
+location.stat <- raw.data %>% dplyr::group_by(LOCATION) %>%
+    dplyr::summarise(Yieldmean = mean(YIELD),
+                     Yieldsd = sd(YIELD))
+```
+
+
+```{r, fig.width=10}
+plt <- plot_ly(data = location.stat, x = ~Yieldmean, y = ~Yieldsd,
+                 type = 'scatter') %>%
+  layout(title = paste0('Location Stats'),
+           xaxis = list(title = "Mean Yield"),
+           yaxis = list(title = "Sd Yield"))
+  
+  
+plt
+```
+
+```{r}
+location.stat.check <- raw.data %>% dplyr::group_by(LOCATION, CHECK) %>%
+    dplyr::summarise(Yieldmean = mean(YIELD),
+                     Yieldsd = sd(YIELD))
+
+```
+
+
+```{r, fig.width=10}
+plt <- plot_ly(data = location.stat.check, x = ~Yieldmean, y = ~Yieldsd, 
+               color = ~CHECK, colors = "Set1", text = ~LOCATION,
+                 type = 'scatter') %>%
+  layout(title = paste0('Location Stats, Partitioned by Check'),
+           xaxis = list(title = "Mean Yield"),
+           yaxis = list(title = "Sd Yield"))
+  
+  
+plt
+```
+
+
+
+```{r}
+plot.location.histogram <- function(loc){
+  location.data.check <- raw.data %>% dplyr::filter(LOCATION == loc, CHECK == "True")
+  location.data.nocheck <- raw.data %>% dplyr::filter(LOCATION == loc, CHECK == "False")
+  
+  p <- plot_ly(alpha = 0.4) %>%
+    add_histogram(x = location.data.check$YIELD, name = "Checks") %>%
+    add_histogram(x = location.data.nocheck$YIELD, name = "Not Checks") %>%
+    layout(barmode = "overlay",
+           xaxis = list(range = c(0,125)),
+           title = paste0("Yields at Location ", loc))
+  
+  p  
+}
+
+```
+
+
+
+### Medium Yield - High Dispersion
+Interesting double mode distribution
+
+```{r}
+plot.location.histogram(4320)
+
+```
+
+### Low Yield low dispersion
+
+```{r}
+plot.location.histogram(1290)
+
+```
+
+### High Yield, low dispersion
+```{r}
+plot.location.histogram(4504)
+```
+
+### High Yield, High Dispersion
+```{r}
+plot.location.histogram(5220)
+```
+
+### Location with high number of experiments
+
+```{r}
+plot.location.histogram(3120)
+```
+
+
+
+```{r}
+location.stat.check.spread <- spread(data = location.stat.check, CHECK,
+                                     Yieldmean) 
+```
+

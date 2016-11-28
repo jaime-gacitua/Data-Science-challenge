@@ -1,0 +1,144 @@
+---
+title: "Seed Data Analysis"
+author: "SCS"
+date: "November 23, 2016"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width = 20)
+
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+library(readr)
+library(hexbin)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+
+```
+
+## Exploratory data analysis
+
+```{r}
+raw.data <- readxl::read_excel('./data/EXPERIMENT DATA.xlsx')
+```
+
+```{r, echo=FALSE}
+raw.data$EXPERIMENT <- factor(raw.data$EXPERIMENT)
+raw.data$LOCATION <- factor(raw.data$LOCATION, levels = unique(raw.data$LOCATION))
+raw.data$VARIETY <- factor(raw.data$VARIETY)
+raw.data$FAMILY <- factor(raw.data$FAMILY)
+raw.data$CHECK <- factor(raw.data$CHECK)
+raw.data$CLASS_OF <- factor(raw.data$CLASS_OF)
+
+
+raw.data.nrows <- nrow(raw.data)
+summary(raw.data)
+```
+
+
+```{r, eval=FALSE, fig.height=15, fig.width=15, include=FALSE}
+yield.histogram <- plot_ly(x = raw.data$YIELD, type = "histogram") %>%
+  layout(title=paste0("Histogram of yields across the database. Total ", raw.data.nrows, " rows."),
+         xaxis= list(title="Yield"),
+         yaxis= list(title="Count of cases")
+         )
+yield.histogram
+```
+
+
+```{r}
+
+yield.histogram.checks <- plot_ly(alpha = 0.6) %>%
+  add_histogram(x = dplyr::filter(raw.data, CHECK == "False" )$YIELD) %>%
+  add_histogram(x = dplyr::filter(raw.data, CHECK == "True" )$YIELD) %>%
+  layout(title=paste0("Histogram of yields across the database. Total ", raw.data.nrows, " rows."),
+         xaxis= list(title="Yield"),
+         yaxis= list(title="Count of cases"),
+         barmode = "overlay")
+yield.histogram.checks
+
+```
+
+
+## Including only the varieties with BAGSOLD > 0
+
+```{r, echo=FALSE, fig.width=15, out.width=15}
+data.with.bagsold <- read_csv('./data/dataframe_kostas.csv')
+
+summary(data.with.bagsold)
+
+col.relevant <- c('RM', 'VAR_YIELD', 'CHECK_YIELD', 'RATIO', 'BAGSOLD')
+
+data.with.bagsold.hexcolumns <- data.with.bagsold[,col.relevant]
+
+hex.plot <- hexplom(data.with.bagsold.hexcolumns
+                    ,main = 'Density plots for 5 variables.\n Objective: Predict BAGSOLD')
+hex.plot
+
+```
+
+
+```{r}
+p <- plot_ly(data = data.with.bagsold, x = ~RATIO, y = ~BAGSOLD, type = 'scatter',
+        marker = list(size = 10, mode = 'scatter',
+                       color = 'rgba(255, 182, 193, .9)',
+                       line = list(color = 'rgba(152, 0, 0, .8)',
+                                   width = 2))) %>%
+  layout(title = 'Ratio vs Bags Sold',
+         yaxis = list(zeroline = FALSE),
+         xaxis = list(zeroline = FALSE, range = c(0,5)))
+
+
+p
+
+
+```
+
+## What if we group by variety, and use different percentiles of **RATIO**?
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+plot.percentile <- function(data, percentile.to.use){
+  variety.stats.RatioBagsoldPercentile <- data %>% dplyr::group_by(VARIETY) %>%
+    dplyr::summarise(RatioPercentile = quantile(RATIO, probs = percentile.to.use),
+                     BAGSOLD = median(BAGSOLD))
+  
+  plt <- plot_ly(data = variety.stats.RatioBagsoldPercentile, x = ~RatioPercentile, y = ~BAGSOLD,
+                 type = 'scatter',
+          marker = list(size = 10,
+                         color = 'rgba(255, 182, 193, .9)',
+                         line = list(color = 'rgba(152, 0, 0, .8)',
+                                     width = 2))) %>%
+    layout(title = paste0('Ratio (perc=',percentile.to.use,
+                          ') vs Bags Sold. 31 Varieties with BAGSOLD'),
+           yaxis = list(zeroline = FALSE),
+           xaxis = list(zeroline = FALSE, range = c(0,5)))
+  
+  
+  plt
+}
+
+
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+percentiles = c(0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 1)
+
+plots <- lapply(percentiles, function(x){
+  a <- plot.percentile(data.with.bagsold, x)
+  show(a)
+  }) 
+#htmltools::tagList(plots)
+
+```
+
+
+
+There is some sort of regularity when we plot perc=0 and perc=0.5

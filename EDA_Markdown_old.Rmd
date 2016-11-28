@@ -1,0 +1,240 @@
+---
+title: "Seed Data Analysis"
+author: "SCS"
+date: "November 23, 2016"
+output: 
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width = 20)
+
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+library(readr)
+library(hexbin)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+
+```
+
+## Exploratory data analysis
+
+```{r}
+raw.data <- readxl::read_excel('./data/EXPERIMENT DATA.xlsx')
+```
+
+```{r, echo=FALSE}
+raw.data$EXPERIMENT <- factor(raw.data$EXPERIMENT)
+raw.data$LOCATION <- factor(raw.data$LOCATION, levels = unique(raw.data$LOCATION))
+raw.data$VARIETY <- factor(raw.data$VARIETY)
+raw.data$FAMILY <- factor(raw.data$FAMILY)
+raw.data$CHECK <- factor(raw.data$CHECK)
+raw.data$CLASS_OF <- factor(raw.data$CLASS_OF)
+
+
+raw.data.nrows <- nrow(raw.data)
+summary(raw.data)
+```
+
+
+```{r, fig.height=15, fig.width=15}
+yield.histogram <- plot_ly(x = raw.data$YIELD, type = "histogram") %>%
+  layout(title=paste0("Histogram of yields across the database. Total ", raw.data.nrows, " rows."),
+         xaxis= list(title="Yield"),
+         yaxis= list(title="Count of cases")
+         )
+yield.histogram
+```
+
+
+```{r}
+
+yield.histogram.checks <- plot_ly(alpha = 0.6) %>%
+  add_histogram(x = dplyr::filter(raw.data, CHECK == "False" )$YIELD) %>%
+  add_histogram(x = dplyr::filter(raw.data, CHECK == "True" )$YIELD) %>%
+  layout(title=paste0("Histogram of yields across the database. Total ", raw.data.nrows, " rows."),
+         xaxis= list(title="Yield"),
+         yaxis= list(title="Count of cases"),
+         barmode = "overlay")
+yield.histogram.checks
+
+```
+
+
+
+```{r}
+## Calculate number of observations per location
+
+location.stats <- raw.data %>% dplyr::group_by(LOCATION) %>%
+  dplyr::summarise(count = n())
+
+location.stats <- location.stats[order(location.stats$count, decreasing = TRUE),]
+location.stats$LOCATION <- factor(location.stats$LOCATION, levels = location.stats$LOCATION)
+raw.data$LOCATION <- factor(raw.data$LOCATION, levels = location.stats$LOCATION)
+
+location.stats.plot <- plot_ly(
+                          x = location.stats$LOCATION,
+                          y = location.stats$count,
+                          type = "bar"
+                        )%>%
+  layout(title=paste0("Location usage preferences. Total Locations ", 
+                      nrow(location.stats) ),
+         xaxis= list(title="Location Code"),
+         yaxis= list(title="Number of observations"))
+location.stats.plot
+
+```
+
+
+```{r}
+location.year.hist <- plot_ly(x = raw.data$YEAR, y = raw.data$LOCATION) %>% 
+  add_histogram2d() %>%
+  layout(title=paste0("Distribution of observations on each Location and Year"),
+         xaxis= list(title="Year"),
+         yaxis= list(title="Location Code",
+                     autorange='reversed')
+         )
+location.year.hist
+
+```
+
+
+```{r}
+location.exper.yield <- raw.data %>% dplyr::group_by_(.dots = c("LOCATION", "EXPERIMENT")) %>%
+  dplyr::summarise(YieldMedian = median(YIELD))
+
+location.exper.yield$YieldMedianInt <- as.integer(location.exper.yield$YieldMedian)
+
+location.exper.yield.mat <- location.exper.yield %>% spread(EXPERIMENT, YieldMedianInt) 
+
+location.exper.yield.mat[is.na(location.exper.yield.mat)] <- 0
+location.exper.yield.mat <-  as.matrix(location.exper.yield.mat)
+
+#location.exper.yield.plot <- plot_ly(location.exper.yield, 
+#                                     x = ~EXPERIMENT, 
+#                                     y = ~LOCATION, 
+#                                     z = location.exper.yield.mat) %>%
+#  add_histogram2d()  %>%
+#  layout(title=paste0("Distribution of Median Yield on each (Location,Experiment) BAD PLOT 0-1s"),
+#         xaxis= list(title="Experiment Code"),
+#         yaxis= list(title="Location Code",
+#                     autorange='reversed')
+#         )
+
+#location.exper.yield.plot
+
+```
+
+
+
+```{r}
+location.stats.YieldMedian <- raw.data %>% dplyr::group_by(LOCATION) %>%
+  dplyr::summarise(YieldMedian = median(YIELD))
+
+location.stats <- inner_join(x = location.stats, y = location.stats.YieldMedian,
+                             by = "LOCATION")
+
+```
+
+
+```{r, echo=FALSE, error=FALSE, message=FALSE, fig.width=20, out.width=20}
+# Order descending by median
+location.stats <- location.stats[order(location.stats$YieldMedian, decreasing = TRUE),]
+location.stats$LOCATION <-factor(location.stats$LOCATION, levels = location.stats$LOCATION)
+raw.data$LOCATION <- as.character(raw.data$LOCATION)
+raw.data$LOCATION <- factor(raw.data$LOCATION, levels = location.stats$LOCATION)
+
+# Make box plots
+yield.boxplot.locations <- plot_ly(data = raw.data, 
+                                   y = ~YIELD, 
+                                   color = ~LOCATION, 
+                                   type = "box") %>%
+  layout(title=paste0("Distribution of yields on each Location"),
+         xaxis= list(title="Location Code"),
+         yaxis= list(title="Yield")
+         )
+yield.boxplot.locations
+```
+
+
+## Including only the varieties with BAGSOLD > 0
+
+```{r, echo=FALSE, fig.width=15, out.width=15}
+data.with.bagsold <- read_csv('./data/dataframe_kostas.csv')
+
+summary(data.with.bagsold)
+
+col.relevant <- c('RM', 'VAR_YIELD', 'CHECK_YIELD', 'RATIO', 'BAGSOLD')
+
+data.with.bagsold.hexcolumns <- data.with.bagsold[,col.relevant]
+
+hex.plot <- hexplom(data.with.bagsold.hexcolumns
+                    ,main = 'Density plots for 5 variables.\n Objective: Predict BAGSOLD')
+hex.plot
+
+```
+
+
+```{r}
+p <- plot_ly(data = data.with.bagsold, x = ~RATIO, y = ~BAGSOLD, type = 'scatter',
+        marker = list(size = 10, mode = 'scatter',
+                       color = 'rgba(255, 182, 193, .9)',
+                       line = list(color = 'rgba(152, 0, 0, .8)',
+                                   width = 2))) %>%
+  layout(title = 'Ratio vs Bags Sold',
+         yaxis = list(zeroline = FALSE),
+         xaxis = list(zeroline = FALSE))
+
+
+p
+
+
+```
+
+What if we group by variety, and use the median ratio?
+
+```{r}
+plot.percentile <- function(data, percentile.to.use){
+  variety.stats.RatioBagsoldPercentile <- data %>% dplyr::group_by(VARIETY) %>%
+    dplyr::summarise(RatioPercentile = quantile(RATIO, probs = percentile),
+                     BAGSOLD = median(BAGSOLD))
+  
+  p <- plot_ly(data = variety.stats.RatioBagsoldPercentile, x = ~RatioPercentile, y = ~BAGSOLD,
+          marker = list(size = 10,
+                         color = 'rgba(255, 182, 193, .9)',
+                         line = list(color = 'rgba(152, 0, 0, .8)',
+                                     width = 2))) %>%
+    layout(title = paste0('Ratio (perc=',percentile.to.use,
+                          ') vs Bags Sold. 31 Varieties with BAGSOLD'),
+           yaxis = list(zeroline = FALSE),
+           xaxis = list(zeroline = FALSE))
+  
+  
+  p
+}
+
+
+```
+
+```{r}
+percentile <- 0.5
+plot.percentile(data.with.bagsold, percentile)
+```
+
+```{r}
+percentile <- 0.1
+plot.percentile(data.with.bagsold, percentile)
+```
+
+```{r}
+percentile <- 1
+plot.percentile(data.with.bagsold, percentile)
+```
+
+
