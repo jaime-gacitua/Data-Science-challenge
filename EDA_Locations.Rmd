@@ -164,3 +164,141 @@ location.stat.check.spread <- spread(data = location.stat.check, CHECK,
                                      Yieldmean) 
 ```
 
+
+
+```{r}
+centers <- 50
+error <- lapply(1:centers, function(x){
+  clusters <- kmeans(x = location.stat[,c(2,3)], centers = x, nstart = 100)
+  return(clusters$tot.withinss)
+})
+plot(y = error, x = 1:centers)
+```
+
+
+```{r}
+selected.centers <- 9
+clusters <- kmeans(x = location.stat[,c(2,3)], centers = selected.centers, nstart = 2000)
+
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+location.stat.clustered <- cbind(location.stat, clusters$cluster)
+names(location.stat.clustered)[4] <- 'cluster'
+
+plt <- plot_ly(data = location.stat.clustered, 
+               x = ~Yieldmean, y = ~Yieldsd, color = ~cluster,
+                 type = 'scatter') %>%
+  layout(title = paste0('Location Stats'),
+           xaxis = list(title = "Mean Yield"),
+           yaxis = list(title = "Sd Yield"))
+  
+
+plt
+
+
+```
+
+
+```{r}
+raw.data.clustered <- inner_join(x = raw.data, y = location.stat.clustered,
+                                 by = 'LOCATION')
+
+```
+
+
+```{r}
+variety.location.cluster.mean <- raw.data.clustered %>% 
+  group_by(VARIETY, cluster)%>%
+  summarise(Yieldmean = mean(YIELD)) %>% spread(cluster, Yieldmean)
+
+a <- 1:selected.centers
+a <- paste0("m", a)     
+names(variety.location.cluster.mean) <- c("VARIETY", a)
+
+variety.location.cluster.sd <- raw.data.clustered %>% 
+  group_by(VARIETY, cluster)%>%
+  summarise(Yieldsd = sd(YIELD)) %>% spread(cluster, Yieldsd)
+
+a <- 1:selected.centers
+a <- paste0("sd", a)     
+names(variety.location.cluster.sd) <- c("VARIETY", a)
+
+variety.location.cluster.features <- inner_join(variety.location.cluster.mean,
+                                                variety.location.cluster.sd,
+                                                by = "VARIETY")
+
+
+```
+
+
+```{r}
+bagsold.regression.data <- read_excel(filename <- "./data/Data_Regression_trial1.xlsx")
+
+bagsold.regression.data.expanded <- left_join(bagsold.regression.data,
+                                              variety.location.cluster.features,
+                                              by = "VARIETY")
+
+numcols <- ncol(bagsold.regression.data.expanded)
+
+
+
+```
+
+
+```{r}
+for(i in 8:numcols ){
+  ## Get the average of the column
+  average <- mean(as.matrix(na.omit(bagsold.regression.data.expanded[,i])))
+
+  ## Replace all the values with the average
+  bagsold.regression.data.expanded[is.na(bagsold.regression.data.expanded[,i]),i] = average
+}
+pairs(bagsold.regression.data.expanded[3:numcols])
+
+
+#mean(as.matrix(na.omit(bagsold.regression.data.expanded[,8])))
+```
+
+```{r}
+linear.model <- lm(BAGSOLD ~ ., data = bagsold.regression.data.expanded[c(8:19)])
+summary(linear.model)
+
+```
+
+
+```{r}
+p <- plot_ly(data = bagsold.regression.data.expanded, x = ~m5, y = ~BAGSOLD, type = 'scatter',
+        marker = list(size = 10, mode = 'scatter',
+                       color = 'rgba(255, 182, 193, .9)',
+                       line = list(color = 'rgba(152, 0, 0, .8)',
+                                   width = 2))) %>%
+  layout(title = 'Mean Cluster 5 vs Bags Sold',
+         yaxis = list(zeroline = FALSE, range = c(0, max(bagsold.regression.data.expanded$BAGSOLD)*1.1)),
+         xaxis = list(zeroline = FALSE, range = c(0, max(bagsold.regression.data.expanded$m5)*1.1)))
+
+
+p
+```
+
+
+```{r}
+p <- plot_ly(data = bagsold.regression.data.expanded, x = ~m8, y = ~BAGSOLD, type = 'scatter',
+        marker = list(size = 10, mode = 'scatter',
+                       color = 'rgba(255, 182, 193, .9)',
+                       line = list(color = 'rgba(152, 0, 0, .8)',
+                                   width = 2))) %>%
+  layout(title = 'Mean Cluster 8 vs Bags Sold',
+         yaxis = list(zeroline = FALSE, range = c(0, max(bagsold.regression.data.expanded$BAGSOLD)*1.1)),
+         xaxis = list(zeroline = FALSE, range = c(0, max(bagsold.regression.data.expanded$m8)*1.1)))
+
+p
+```
+
